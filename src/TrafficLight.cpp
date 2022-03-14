@@ -1,6 +1,19 @@
 #include <iostream>
 #include <random>
+#include <chrono>
 #include "TrafficLight.h"
+
+ // constants  
+constexpr double cycle_duration_min = 4.0;
+constexpr double cycle_duration_max = 6.0;
+
+// utility functions
+std::chrono::duration<double> GenerateNewCycleDuration()
+{
+  return std::chrono::duration<double>(
+    cycle_duration_min + static_cast<double>(std::rand()) / (static_cast<double> (RAND_MAX/(cycle_duration_max - cycle_duration_min)))
+  );
+}
 
 /* Implementation of class "MessageQueue" */
 
@@ -43,7 +56,8 @@ TrafficLightPhase TrafficLight::getCurrentPhase()
 
 void TrafficLight::simulate()
 {
-    // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
+    // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class.
+    threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
 
 // virtual function which is executed in a thread
@@ -53,4 +67,29 @@ void TrafficLight::cycleThroughPhases()
     // and toggles the current phase of the traffic light between red and green and sends an update method 
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
+
+  
+    // initialize variables
+    std::chrono::duration<double> cycle_duration = GenerateNewCycleDuration();
+    std::chrono::high_resolution_clock::time_point time_last_toggled = std::chrono::high_resolution_clock::now();
+  
+    while(true)
+    {
+      if(std::chrono::high_resolution_clock::now() - time_last_toggled > cycle_duration)
+      {
+        // toggle _currentPhase
+        _currentPhase = _currentPhase == TrafficLightPhase::red ? TrafficLightPhase::green : TrafficLightPhase::red;
+        // TODO: "sends an update method to the message queue using move semantics" -> wait for upcoming tasks where class MessageQueue is actually implemented
+        
+        // update cycle duration
+        cycle_duration = GenerateNewCycleDuration();
+        // reset last_time_toggled
+        time_last_toggled = std::chrono::high_resolution_clock::now();
+      }
+      else
+      {
+        // sleep a milli second to reduce cpu load
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    }
 }
